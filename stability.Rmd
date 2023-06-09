@@ -1,0 +1,383 @@
+---
+title: "Stability Assignment"
+author: "Erica Bishop"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r libraries}
+library(sensitivity)
+library(tidyverse)
+library(deSolve)
+library(ggpubr)
+```
+### Defining stability
+
+For this model, I'm defining stability as constant (or near constant) predator and prey populations for two decades. In the explorations below, I can mostly achieve stability within the 500 days, but I've also expanded and contracted the time window some. 
+
+```{r source functon}
+#source function
+source("hunting_mod.R")
+
+# set parameter list
+pars = data.frame(rprey=0.95,
+                  alpha=0.01,
+                  eff=0.6,
+                  pmort=0.4,
+                  K=2000,
+                  h = 0.2, #hunting rate
+                  preypop = 200) #minimum prey population must be 400 for hunting to take effect
+                  #prey pop only used for first graph - I think its more effective / realistic to use the prey parameter instead
+
+
+```
+
+
+Explore how different hunting levels and different minimum prey populations (before hunting is allowed) are likely to effect the stability of the populations of both predator and prey. Use this exploration to recommend a hunting target that will be sustainable (e.g leave you with a stable prey and predator population)
+
+You can assume the following rprey=0.95, alpha=0.01, eff=0.6,pmort=0.4, K=2000,
+
+# Exploration
+
+The graphs and code below are where I tested many parameter combinations. I didn't keep everything I tried, so the final two graphs at the end of this docuent will be the most useful to look at. 
+
+```{r test function}
+
+# try initial conditions that will be stable
+preyi = with(pars, pmort/(eff*alpha)) 
+predi = with(pars, rprey/alpha*(1-preyi/K)) 
+
+# times when you want to evaluate
+days = seq(from=1,to=500)
+
+# first see what happens when we start with 1 of each
+currpop=c(prey=1, pred=1)
+
+# run differential equation solver
+res = ode(func=lotvmod_hunt, y=currpop, times=days, parms=pars)
+
+# extract the results
+res_initial = as.data.frame(res) %>% gather(key="animal", value="pop",-time)
+
+# graph both populations over time
+p1 = ggplot(res_initial,
+          aes(time, pop, col=animal)) +
+  geom_line()
+
+p1
+
+
+```
+
+This initial test does stabilize (yay!) - but I would like to see if I can get it to stabilize at a higher population, especially becuase as it stands hunting is only occuring when prey > 400. 
+
+Next I will adjust my function to allow for hunting when prey is as low as 100 to see how this changes - I also fized this new function to account for the initial prey population, not a separate parameter (as in the function used above)
+
+```{r}
+
+#exploring different hunting thresholds in the function, so creating a new file here to not remove old results yet
+
+#source new function with lower threshold
+source("lotvmod_hunt.R")
+
+#using same parameters as above
+# run differential equation solver
+res = ode(func=lotvmod_hunt, y=currpop, times=days, parms=pars)
+
+# extract the results
+res_initial = as.data.frame(res) %>% gather(key="animal", value="pop",-time)
+
+# graph both populations over time
+p2 = ggplot(res_initial,
+          aes(time, pop, col=animal)) +
+  geom_line()
+
+p2
+
+
+```
+Setting the hunting threshold with the prey population de-stabilizes it a lot! 
+
+Try increasing the initial conditions: 
+
+```{r}
+
+# times when you want to evaluate
+days = seq(from=1,to=500)
+
+# increasing initial populations
+currpop=c(prey=100, pred=10)
+
+# run differential equation solver
+res = ode(func=lotvmod_hunt, y=currpop, times=days, parms=pars)
+
+# extract the results
+res_initial = as.data.frame(res) %>% gather(key="animal", value="pop",-time)
+
+# graph both populations over time
+p3 = ggplot(res_initial,
+          aes(time, pop, col=animal)) +
+  geom_line()
+
+p3
+
+
+```
+Interestingly that decreased populations even more
+
+Now I'll try going back to a 1 to 1 initial condition and messing with some of the other parameters
+
+```{r}
+
+# set new parameter list
+pars = data.frame(rprey=0.95,
+                  alpha=0.01,
+                  eff=0.6,
+                  pmort=0.4,
+                  K=2000,
+                  h = 0.02) #decreasing the hunting rate significantly
+
+# time
+days = seq(from=1,to=500)
+
+# first see what happens when we start with 1 of each
+currpop=c(prey=1, pred=1)
+
+# run differential equation solver
+res = ode(func=lotvmod_hunt, y=currpop, times=days, parms=pars)
+
+# extract the results
+res_initial = as.data.frame(res) %>% gather(key="animal", value="pop",-time)
+
+# graph both populations over time
+p4 = ggplot(res_initial,
+          aes(time, pop, col=animal)) +
+  geom_line()
+
+p4
+
+
+```
+The lower hunting rate didn't actually increase the populatin much at all, so instead I will leave a higher hunting rate and change the other parameters around 
+
+```{r}
+
+# set new parameter list
+pars = data.frame(rprey=0.98,
+                  alpha=0.01,
+                  eff=0.3,
+                  pmort=0.2,
+                  K=2000,
+                  h = 0.9) 
+
+# time
+days = seq(from=1,to=500)
+
+# first see what happens when we start with 1 of each
+currpop=c(prey=1, pred=1)
+
+# run differential equation solver
+res = ode(func=lotvmod_hunt, y=currpop, times=days, parms=pars)
+
+# extract the results
+res_initial = as.data.frame(res) %>% gather(key="animal", value="pop",-time)
+
+# graph both populations over time
+p5 = ggplot(res_initial,
+          aes(time, pop, col=animal)) +
+  geom_line() +
+  scale_x_continuous(limits = c(0, 500))
+
+p5
+
+
+```
+Playing around with the parameters a lot - having the hunting rate so high (as above) means that the prey population is pretty much only controlled by hunting and the predator population can grow over time - however they both dissappear after 25 days???
+```{r}
+
+# set new parameter list
+pars = data.frame(rprey=1.2,
+                  alpha=0.01,
+                  eff=0.3,
+                  pmort=0.2,
+                  K=2000,
+                  h = 0.2) 
+
+# time
+days = seq(from=1,to=500)
+
+# first see what happens when we start with 1 of each
+currpop=c(prey=1, pred=1)
+
+# run differential equation solver
+res = ode(func=lotvmod_hunt, y=currpop, times=days, parms=pars)
+
+# extract the results
+res_initial = as.data.frame(res) %>% gather(key="animal", value="pop",-time)
+
+# graph both populations over time
+p6 = ggplot(res_initial,
+          aes(time, pop, col=animal)) +
+  geom_line() +
+  scale_x_continuous(limits = c(0, 500))
+
+p6
+
+
+
+```
+```{r}
+
+source("lotvmod_hunt2.R") #raised hunting threshold to try to not have them all die? - raised and lowered
+
+
+# set new parameter list
+pars = data.frame(rprey=1.8,
+                  alpha=0.01,
+                  eff=0.3,
+                  pmort=0.3,
+                  K=2000,
+                  h = 0.9) 
+
+# time
+#hunting has a more noticeable effect before pop really stabilizes
+days = seq(from=1,to=200)
+
+# first see what happens when we start with 1 of each
+currpop=c(prey=1000, pred=1)
+
+# run differential equation solver
+res = ode(func=lotvmod_hunt, y=currpop, times=days, parms=pars)
+
+# extract the results
+res_initial = as.data.frame(res) %>% gather(key="animal", value="pop",-time)
+
+# graph both populations over time
+p7 = ggplot(res_initial,
+          aes(time, pop, col=animal)) +
+  geom_line() 
+
+p7
+
+
+
+```
+The exploration above might be a bit hard to follow (sorry!) But I tried to document some of the things I was testing. I found that I really had to decrease the prey popiulation threshold for hunting to see major effects in the graphs. I also had trouble getting predator and prey populations to stabilize at high populatons, they seemed happiest around 100ish (or always below 500) - so the carrying capacity never really took effect in this model. 
+
+The if / else statement I originally had in the function was also causing issues where both populations could entirely die off - so I decidied to leave the simple model with hunting always incorporated
+
+# Testing stability
+
+As defined above, I'm looking for populations to be stable for two decades into the future. Below I compare how a low hunting rate and a high hunting rate affect population stability over 
+```{r}
+# using original parameters to really focus on hunting effect
+pars = data.frame(rprey=0.95,
+                  alpha=0.01,
+                  eff=0.6,
+                  pmort=0.4,
+                  K=2000,
+                  h = 0.9)
+
+# time - 20 years
+days = seq(from=1,to=7305)
+
+# first see what happens when we start with 1 of each
+currpop=c(prey=1, pred=1)
+
+# run differential equation solver
+res = ode(func=lotvmod_hunt, y=currpop, times=days, parms=pars)
+
+# extract the results
+res_initial = as.data.frame(res) %>% gather(key="animal", value="pop",-time)
+
+# graph both populations over time
+p8 = ggplot(res_initial,
+          aes(time, pop, col=animal)) +
+  geom_line() +
+  scale_x_continuous(limits = c(0, 7305))
+
+p8
+
+
+```
+
+
+```{r}
+source("lotvmod_hunt2.R")
+
+# using original parameters to really focus on hunting effect
+pars = data.frame(rprey=0.95,
+                  alpha=0.01,
+                  eff=0.6,
+                  pmort=0.4,
+                  K=2000,
+                  h = 0.001) #starting with a really low hunting rate, jsut 0.1%
+
+# time - 20 years
+days = seq(from=1,to=7305)
+
+# first see what happens when we start with 1 of each
+currpop=c(prey=1, pred=1)
+
+# run differential equation solver
+res = ode(func=lotvmod_hunt, y=currpop, times=days, parms=pars)
+
+# extract the results
+res_initial = as.data.frame(res) %>% gather(key="animal", value="pop",-time)
+
+# graph both populations over time
+p_lowhunt = ggplot(res_initial,
+          aes(time, pop, col=animal)) +
+  geom_line() +
+  scale_x_continuous(limits = c(0, 7305))
+
+```
+
+
+```{r}
+
+# using original parameters to really focus on hunting effect
+pars = data.frame(rprey=0.95,
+                  alpha=0.01,
+                  eff=0.6,
+                  pmort=0.4,
+                  K=2000,
+                  h = 0.99) #really high hunting rate
+
+# time - 20 years
+days = seq(from=1,to=7305)
+
+# first see what happens when we start with 1 of each
+currpop=c(prey=1, pred=1)
+
+# run differential equation solver
+res = ode(func=lotvmod_hunt, y=currpop, times=days, parms=pars)
+
+# extract the results
+res_initial = as.data.frame(res) %>% gather(key="animal", value="pop",-time)
+
+# graph both populations over time
+p_highhunt = ggplot(res_initial,
+          aes(time, pop, col=animal)) +
+  geom_line() +
+  scale_x_continuous(limits = c(0, 7305))
+
+
+```
+
+```{r}
+
+ggarrange(p_lowhunt, p_highhunt)
+
+
+```
+
+### Recommendation for sustainable hunting
+
+Based on my exploration here, hunting rates can actually remain someone high, up to 0.9 - with other parameters held constant - and the population will remain stable. However, at the 0.9 hunting rate (seen in p8 graph) - the prey population is really low even though its defined as "stable" in my definition. Therefore I would recommend a more nuanced definition of stability and a lower hunting rate that allows for a higher population. 
+
+ 
